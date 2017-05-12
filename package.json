@@ -1,0 +1,15 @@
+{
+    "name": "boxography",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "dependencies": {},
+    "devDependencies": {},
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "share": "npm version patch && git push && npm publish"
+    },
+    "keywords": [],
+    "author": "Michael McLaughlin <michael@gospecless.com> (https://gospecless.com)",
+    "license": "MIT"
+}
