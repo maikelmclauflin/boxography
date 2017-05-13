@@ -17,6 +17,8 @@ module.exports = function (options_) {
         });
     }
     var byWinner = _.cacheable(_.returns.array);
+    var borderList = [];
+    var borderCache = {};
     var ask_reverse = _.categoricallyCacheable(function (x) {
         return function (y) {
             var id = compute(x, y);
@@ -48,7 +50,11 @@ module.exports = function (options_) {
     while (index < m) {
         target = matrix[index];
         index += 1;
-        connect(target, matrix.slice(index), ask);
+        _.forEach(matrix.slice(index), autoTarget);
+    }
+
+    function autoTarget(next) {
+        connect(target, next, borderTracker);
     }
     var tasks = [
         //
@@ -58,10 +64,50 @@ module.exports = function (options_) {
     return {
         all: all,
         winner: byWinner,
-        matrix: turnDecisionsIntoMatrix(cache, options.matrixify),
         points: cache,
-        border: borders
+        border: borderCache,
+        forEach: function (fn) {
+            return turnDecisionsIntoMatrix(cache, fn);
+        }
     };
+
+    function borderTracker(startX, startY) {
+        var previous = {
+            x: startX,
+            y: startY
+        };
+        return churn;
+
+        function churn(x, y) {
+            var id, id1, id2, coords;
+            // var borderCacheHash
+            if (x !== previous.x && y !== previous.y) {
+                if (previous.y < y) {
+                    churn(x, y - 1);
+                } else {
+                    churn(x, y + 1);
+                }
+            }
+            id = ask(x, y);
+            if (previous.id && previous.id !== id) {
+                // border change
+                coords = [
+                    [previous.x, previous.y],
+                    [x, y]
+                ];
+                id1 = coords.join(',');
+                id2 = [coords[0], coords[1]].join(',');
+                if (!borderCache[id1] && !borderCache[id2]) {
+                    borderList.push(coords);
+                    borderCache[id1] = borderCache[id2] = coords;
+                }
+            }
+            previous.id = id;
+            previous.x = x;
+            previous.y = y;
+            return id;
+        }
+    }
 
     function ask(x, y) {
         return ask_reverse(y, x);
@@ -77,96 +123,37 @@ function slope(x1, y1, x2, y2) {
 }
 
 function taskme(x1, y1, x2, y2, runner) {
-    var previousComputable, filter,
+    var previousComputable, filter, dy,
         x = x1,
         y = y1,
-        xStart = x,
-        yStart = y,
-        dx = x2 - x1,
-        dy = y2 - y1,
-        dxAbs = Math.abs(dx),
-        dyAbs = Math.abs(dy),
-        slope = dy / dx,
-        invertedSlope = 1 / slope,
-        slopeIsInfinite = _.isInfinite(slope),
-        slopeDir, slopeIncrementer;
-    compute(x, y, runner);
-    increments = _.noop;
-    if (slopeIsInfinite) {
-        increments = incrementYOnly(_.clamp(slope, -1, 1));
-    } else if (slope === 0) {
-        increments = incrementXOnly(1);
-    } else if (slope <= 1 && slope >= -1) {
-        increments = incrementsBy(1, slope, function () {
-            return x + 1 <= x2;
+        slopeValue = slope(x1, y1, x2, y2);
+    // increments = _.noop;
+    if (slopeValue === Infinity) {
+        return incrementsBy(0, 1, function () {
+            return y <= y2;
+        });
+    } else if (slopeValue === 0) {
+        return incrementsBy(1, 0, function () {
+            return x <= x2;
+        });
+    } else if (slopeValue <= 1 && slopeValue >= -1) {
+        return incrementsBy(1, slopeValue, function () {
+            return x <= x2;
         });
     } else {
-        increments = incrementsBy(1 / slope, 1, function () {
-            return y + 1 <= y2;
+        return incrementsBy(1 / slopeValue, 1, function () {
+            return y <= y2;
         });
     }
-    _.whilst(increments, _.noop);
 
-    function incrementYOnly(dir) {
-        return function () {
-            compute(x, y, runner);
-            return continues();
-        };
-
-        function continues() {
-            y += dir;
-            return y <= y2;
-        }
-    }
-
-    function incrementXOnly(dir) {
-        return function () {
-            compute(x, y, runner);
-            return continues();
-        };
-
-        function continues() {
-            x += dir;
-            return x <= x2;
-        }
-    }
-    // function incrementYBy1() {
-    //     x += invertedSlope;
-    //     y += slopeDir;
-    //     var computableX = parseInt(x, 10);
-    //     // y remains computable
-    //     compute(computableX, y, runner);
-    // }
-    // function incrementXBy1(slope) {
-    //     return
-    // return function () {
-    //     x += slopeDir;
-    //     y += slope;
-    //     var computableY = parseInt(y, 10);
-    //     // y remains computable
-    //     compute(x, computableY, runner);
-    // };
-    // }
     function incrementsBy(xnext, ynext, continues) {
         return function () {
+            runner(parseInt(x, 10), parseInt(y, 10));
             x += xnext;
             y += ynext;
-            compute(x, y, runner);
             return continues();
         };
     }
-}
-
-function compute(x, y, runner) {
-    runner(x, y);
-    // runner(x - 1, y);
-    // runner(x + 1, y);
-    // runner(x, y - 1);
-    // runner(x, y + 1);
-    // runner(x - 1, y - 1);
-    // runner(x + 1, y + 1);
-    // runner(x + 1, y - 1);
-    // runner(x - 1, y + 1);
 }
 
 function resolveCenter(row) {
@@ -179,57 +166,56 @@ function resolveCenter(row) {
     return [parseInt(avgX), parseInt(avgY)];
 }
 
-function connect(origin_, targets, ask) {
-    var origin = resolveCenter(origin_),
+function connect(origin_, target_, ask) {
+    var calculatedSlope, origin = resolveCenter(origin_),
         x1 = origin[0],
-        y1 = origin[1];
-    _.forEach(targets, function (target_) {
-        var calculatedSlope, target = resolveCenter(target_),
-            x2 = target[0],
-            y2 = target[1],
-            x_1 = x1,
-            y_1 = y1,
-            x_2 = x2,
-            y_2 = y2;
-        if (x2 === x1) {
-            if (y2 < y1) {
-                reverse();
-            }
-        } else if (y2 === y1) {
+        y1 = origin[1],
+        target = resolveCenter(target_),
+        x2 = target[0],
+        y2 = target[1],
+        x_1 = x1,
+        y_1 = y1,
+        x_2 = x2,
+        y_2 = y2;
+    if (x2 === x1) {
+        if (y2 < y1) {
+            reverse();
+        }
+    } else if (y2 === y1) {
+        if (x2 < x1) {
+            reverse();
+        }
+    } else if ((calculatedSlope = slope(x1, y1, x2, y2)) >= -1 && //
+        calculatedSlope <= 1) {
+        if (calculatedSlope > 0) {
             if (x2 < x1) {
                 reverse();
             }
-        } else if ((calculatedSlope = slope(x1, y1, x2, y2)) >= -1 && //
-            calculatedSlope <= 1) {
-            if (calculatedSlope > 0) {
-                if (x2 < x1) {
-                    reverse();
-                }
-            } else {
-                if (x2 < x1) {
-                    reverse();
-                }
+        } else {
+            if (x2 < x1) {
+                reverse();
+            }
+        }
+    } else {
+        if (calculatedSlope > 1) {
+            if (y2 < y1) {
+                reverse();
             }
         } else {
-            if (calculatedSlope > 1) {
-                if (y2 < y1) {
-                    reverse();
-                }
-            } else {
-                if (y2 < y1) {
-                    reverse();
-                }
+            if (y2 < y1) {
+                reverse();
             }
         }
-        taskme(x_1, y_1, x_2, y_2, ask);
+    }
+    var task = taskme(x_1, y_1, x_2, y_2, ask(x_1, y_1));
+    while (task()) {}
 
-        function reverse() {
-            x_1 = x2;
-            y_1 = y2;
-            x_2 = x1;
-            y_2 = y1;
-        }
-    });
+    function reverse() {
+        x_1 = x2;
+        y_1 = y2;
+        x_2 = x1;
+        y_2 = y1;
+    }
 }
 
 function matrixify(item) {
