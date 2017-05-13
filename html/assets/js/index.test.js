@@ -9,15 +9,40 @@ var colors = {
     y: 'green',
     z: 'red'
 };
-var matrix = [
-    [300, 300],
-    [970, 90],
-    [728, 90],
-    [300, 600],
-    [600, 600],
-    [700, 400]
-];
-console.log(matrix);
+var matrix = _.map([
+    [250, 250],
+    [250, 500],
+    [300, 450],
+    [350, 400],
+    [400, 350],
+    [450, 300],
+    [500, 250],
+    [450, 200],
+    [400, 150],
+    [350, 100],
+    [300, 50],
+    [250, 0],
+    [200, 50],
+    [150, 100],
+    [100, 150],
+    [50, 200],
+    [0, 250],
+    [50, 300],
+    [100, 350],
+    [150, 400],
+    [200, 450]
+], function (row) {
+    return [row[0] + 100, row[1] + 100];
+});
+// var matrix = [
+//     [300, 300],
+//     [970, 90],
+//     [728, 90],
+//     [300, 600],
+//     [600, 600],
+//     [700, 400]
+// ];
+// console.log(matrix);
 var results = boxography({
     compute: function (x, y) {
         // some function computes
@@ -30,9 +55,10 @@ var results = boxography({
     matrix: matrix,
     matrixify: function (cell) {
         context.fillStyle = colors[cell[2]];
-        context.fillRect(cell[0], window.innerHeight - cell[1], 1, 1);
+        context.fillRect(cell[0], cell[1], 1, 1);
     }
 });
+console.log(results);
 // _.map(Array(8), function () {
 //         return [Math.floor(Math.random() * 1000), Math.floor(Math.random() * 600)];
 //     })
