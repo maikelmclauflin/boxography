@@ -1,15 +1,20 @@
 {
-  "name": "boxography",
-  "version": "1.0.1",
-  "description": "",
-  "main": "index.js",
-  "dependencies": {},
-  "devDependencies": {},
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "share": "npm version patch && git push && npm publish"
-  },
-  "keywords": [],
-  "author": "Michael McLaughlin <michael@gospecless.com> (https://gospecless.com)",
-  "license": "MIT"
+    "name": "boxography",
+    "version": "1.0.1",
+    "description": "",
+    "main": "index.js",
+    "dependencies": {
+        "debit": "^1.0.14"
+    },
+    "devDependencies": {
+        "batterie": "^1.0.32"
+    },
+    "scripts": {
+        "test": "nodemon index.test.js",
+        "share": "npm version patch && git push && npm publish",
+        "dev": "nodemon make.js --ignore html/assets/js --delay 0.2"
+    },
+    "keywords": [],
+    "author": "Michael McLaughlin <michael@gospecless.com> (https://gospecless.com)",
+    "license": "MIT"
 }
