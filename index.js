@@ -1,15 +1,19 @@
 var _ = require('debit');
 module.exports = function (options_, compute) {
     var options = Object.assign({
-        matrixify: matrixify
+        matrixify: matrixify,
+        continues: _.returns.true,
+        computeLimits: true
     }, options_);
+    var computeLimits = options.computeLimits;
     // fill out matrix, since it can be 2 or 4 long
     var matrix = _.map(_.cloneJSON(options.matrix), fillMatrix);
     var limits = options.limits || {};
     var all = [];
     var limitX = limits.x;
     var limitY = limits.y;
-    var iterationLimit = limits.iterations || 100000000;
+    var iterationLimit = limits.iterations || 500000;
+    var iterations = 0;
     if (!limitX || !limitY) {
         throw new Error({
             message: 'box computations must have a limit'
@@ -25,20 +29,24 @@ module.exports = function (options_, compute) {
             var pointer = [x, y, id];
             list.push(pointer);
             all.push(pointer);
+            iterations += 1;
+            if (iterations >= iterationLimit) {
+                throw new Error({
+                    message: 'iteration limit reached'
+                });
+            }
             return pointer;
         };
     });
     var cache = ask.cache = ask_reverse.cache;
     var borderPixelsByWinner = {};
-    computeAreas(matrix, ask);
-    computeIntersections(matrix, ask, addBorder);
-    computeBorders(borderList, ask, addBorder, addBorderPixel);
-    return {
+    var bt = borderTracker(ask, addBorder);
+    var result = {
         all: all,
-        winner: byWinner,
         points: cache,
-        border: borderCache,
+        counter: 0,
         borderList: borderList,
+        winner: byWinner,
         forEach: function (fn) {
             return turnDecisionsIntoMatrix(cache, fn);
         },
@@ -50,6 +58,45 @@ module.exports = function (options_, compute) {
             });
         }
     };
+    var limitBt = computeLimits ? borderTracker(function (x, y) {
+        var id = ask(x, y);
+        addBorderPixel([x, y, id[2]]);
+        return id;
+    }, addBorder) : bt;
+    var finished = _.find([
+        [
+            [1, 1],
+            [1, limitY]
+        ],
+        [
+            [1, limitY],
+            [limitX, limitY]
+        ],
+        [
+            [limitX, limitY],
+            [limitX, 1]
+        ],
+        [
+            [limitX, 1],
+            [1, 1]
+        ]
+    ], function (coords) {
+        var a = coords[0].concat(coords[0]);
+        var b = coords[1].concat(coords[1]);
+        return connect(a, b, limitBt, callsContinues, computeLimits);
+    });
+    if (!finished) {
+        finished = computeAreas(matrix, ask, addBorder, callsContinues);
+    }
+    if (!finished) {
+        finished = computeIntersections(matrix, bt, callsContinues);
+    }
+    result.finished = !!finished;
+    return result;
+
+    function callsContinues() {
+        return options.continues(borderPixelsByWinner);
+    }
 
     function ask(x, y) {
         return ask_reverse(y, x);
@@ -59,39 +106,68 @@ module.exports = function (options_, compute) {
         return x > 0 && y > 0 > 0 && x <= limitX && y <= limitY;
     }
 
-    function addBorder(x, y, id, bx, by) {
+    function emptyTaskQueue() {
+        return computeBorders(result, borderList, ask, addBorders, addSingleBorder, addBorderPixel);
+    }
+
+    function addBorder(x, y, id, bx, by, bid) {
+        addBorders(x, y, id, bx, by, bid);
+        emptyTaskQueue();
+    }
+
+    function addBorders(x, y, id, bx, by, bid) {
+        addSingleBorder(x, y, id, bx, by, bid);
+        addSingleBorder(bx, by, bid, x, y, id);
+    }
+
+    function addSingleBorder(x, y, id, bx, by, bid) {
         if (!inTheBox(x, y)) {
             return;
         }
-        var coord = [x, y, id, bx, by],
+        var coord = [x, y, id, bx, by, bid],
             identifier = coord.join(',');
-        if (!borderCache[identifier]) {
+        if (id !== bid && !borderCache[identifier] && canBeBorder(x, y, bx, by)) {
             borderCache[identifier] = coord;
-            return addBorderPixel.apply(null, coord);
+            return addBorderPixel(coord);
         }
     }
 
-    function addBorderPixel(x, y, id, bx, by) {
-        var scopedBorderPixels = borderPixelsByWinner[id] = borderPixelsByWinner[id] || {
+    function addBorderPixel(coord) {
+        var x = coord[0],
+            y = coord[1],
+            id = coord[2],
+            bx = coord[3],
+            by = coord[4],
+            bid = coord[5],
+            scopedBorderPixels = borderPixelsByWinner[id] = borderPixelsByWinner[id] || {
                 all: [],
                 hash: {}
             },
             scopedX = scopedBorderPixels.hash[x] = scopedBorderPixels.hash[x] || {},
-            coords = scopedX[y] = scopedX[y] || [],
-            coord = [x, y, id, bx, by];
+            coords = scopedX[y] = scopedX[y] || [];
+        // if ((id && ask(x, y)[2] !== id) || (bid && ask(bx, by)[2] !== bid)) {
+        //     debugger;
+        // }
         scopedBorderPixels.all.push(coord);
+        if (canBeBorder(x, y, bx, by)) {
+            borderList.push(coord);
+        }
         coords.push(coord);
-        borderList.push(coord);
         return true;
     }
 };
 
-function computeBorders(borders, ask, add, addBorder) {
-    var target, index = 0;
+function canBeBorder(x, y, bx, by) {
+    return (x === bx || (x - 1 === bx || x + 1 === bx)) && (y === by || (y - 1 === by || y + 1 === by));
+}
+
+function computeBorders(result, borders, ask, addBorder, addSingleBorder, addBorderPixel) {
+    var target, index = result.counter;
     while (index < borders.length) {
         compute(borders[index]);
         index++;
     }
+    result.counter = index;
 
     function compute(border) {
         var x = border[0],
@@ -99,6 +175,7 @@ function computeBorders(borders, ask, add, addBorder) {
             id = border[2],
             bx = border[3],
             by = border[4],
+            bid = border[5],
             bIsTop = by < y,
             bIsLeft = bx < x,
             bIsRight = bx > x,
@@ -121,14 +198,15 @@ function computeBorders(borders, ask, add, addBorder) {
                 nextBorder = ask(bx_, by_)[2];
                 if (nextBorder === id) {
                     // they are retreating
-                    add(bx__, by__, id, bx, by);
+                    addBorder(bx__, by__, id, bx, by, bid);
+                    addBorderPixel([x_, y_, id]);
                 } else {
                     // nothing has changed
-                    add(x_, y_, id, bx_, by_);
+                    addBorder(x_, y_, id, bx_, by_, ask(bx_, by_)[2]);
                 }
             } else {
                 // end of the line. check back
-                add(x, y, id, x_, y_);
+                addBorder(x, y, id, x_, y_, nextId);
             }
         }
     }
@@ -141,17 +219,49 @@ function computeBorders(borders, ask, add, addBorder) {
     }
 }
 
-function computeAreas(matrix, ask) {
-    _.forEach(matrix, function (row) {
-        var x1 = row[0],
+function computeAreas(matrix, ask, addBorder, continues) {
+    return _.find(matrix, function (row) {
+        var memo, id, id2, x1 = row[0],
             y1 = row[1],
             x2 = row[2],
             y2 = row[3],
-            x, y = y1;
+            x, y = y1,
+            x_ = _.toInteger((x2 + x1) / 2),
+            y_ = _.toInteger((y2 + y1) / 2),
+            primeId = ask(x_, y_)[2];
+        if ((memo = _.find([
+                [x_, y_],
+                [x_, y_ + 1],
+                [x_, y_ - 1],
+                [x_ + 1, y_],
+                [x_ - 1, y_]
+            ], function (coords) {
+                var id2, x = coords[0],
+                    y = coords[1];
+                if (primeId !== (id2 = ask(x, y)[2])) {
+                    addBorder(x_, y_, primeId, x, y, id2);
+                }
+                return !continues();
+            }))) {
+            return memo;
+        }
         do {
             x = x1;
             do {
-                ask(x, y);
+                id = ask(x, y)[2];
+                if (y !== y1) {
+                    if (id !== (id2 = ask(x, y - 1)[2])) {
+                        addBorder(x, y, id, x, y - 1, id2);
+                    }
+                }
+                if (x !== x1) {
+                    if (id !== (id2 = ask(x - 1, y)[2])) {
+                        addBorder(x, y, id, x - 1, y, id2);
+                    }
+                }
+                if (!continues()) {
+                    return true;
+                }
                 x += 1;
             } while (x < x2);
             y += 1;
@@ -159,20 +269,27 @@ function computeAreas(matrix, ask) {
     });
 }
 
-function computeIntersections(matrix, ask, addBorder) {
+function computeIntersections(matrix, bt, continues) {
     var target, index = 0,
         m = matrix.length;
+    if (!continues()) {
+        return true;
+    }
     while (index < m) {
         target = matrix[index];
         index += 1;
-        _.forEach(matrix.slice(index), autoTarget);
+        if (_.find(matrix.slice(index), autoTarget)) {
+            return true;
+        }
     }
 
     function autoTarget(next) {
-        connect(target, next, borderTracker);
+        return connect(target, next, bt, continues);
     }
+}
 
-    function borderTracker(startX, startY) {
+function borderTracker(ask, addBorder) {
+    return function (startX, startY) {
         var previous = {
             x: startX,
             y: startY
@@ -193,15 +310,14 @@ function computeIntersections(matrix, ask, addBorder) {
             id = point[2];
             if (previous.id && previous.id !== id) {
                 // border change
-                addBorder(previous.x, previous.y, previous.id, x, y);
-                addBorder(x, y, id, previous.x, previous.y);
+                addBorder(previous.x, previous.y, previous.id, x, y, id);
             }
             previous.id = id;
             previous.x = x;
             previous.y = y;
             return id;
         }
-    }
+    };
 }
 
 function fillMatrix(row) {
@@ -238,25 +354,26 @@ function taskme(x1, y1, x2, y2, runner) {
 
     function incrementsBy(xnext, ynext, continues) {
         return function () {
-            runner(parseInt(x, 10), parseInt(y, 10));
+            runner(_.toInteger(x), _.toInteger(y));
             x += xnext;
             y += ynext;
             return continues();
         };
     }
 }
-// get a close enough center
+
 function resolveCenter(row) {
+    // get a close enough center
     var x1 = row[0],
         y1 = row[1],
         x2 = row[2],
         y2 = row[3],
         avgX = (x1 + x2) / 2,
         avgY = (y1 + y2) / 2;
-    return [parseInt(avgX), parseInt(avgY)];
+    return [_.toInteger(avgX), _.toInteger(avgY)];
 }
 
-function connect(origin_, target_, borderTracker) {
+function connect(origin_, target_, borderTracker, continues, supress) {
     var calculatedSlope, task, origin = resolveCenter(origin_),
         x1 = origin[0],
         y1 = origin[1],
@@ -298,6 +415,9 @@ function connect(origin_, target_, borderTracker) {
     }
     task = taskme(x_1, y_1, x_2, y_2, borderTracker(x_1, y_1));
     while (task()) {}
+    if (!supress && !continues()) {
+        return true;
+    }
 
     function reverse() {
         x_1 = x2;
@@ -319,8 +439,4 @@ function turnDecisionsIntoMatrix(decisions, matrixify) {
             return memo;
         }, memo);
     }, []);
-}
-
-function computeFromOrigin(vectors, winner) {
-    //
 }

@@ -11,43 +11,48 @@ function compute() {
     };
     var x = 200;
     var y = 50;
-    var matrix = [
-        [250, 500],
-        [650, 500],
-        [450, 250]
-    ];
-    // var matrix = _.map([
-    //     [250, 250],
+    var size = 0;
+    // var matrix = [
     //     [250, 500],
-    //     [300, 450],
-    //     [350, 400],
-    //     [400, 350],
-    //     [450, 300],
-    //     [500, 250],
-    //     [450, 200],
-    //     [400, 150],
-    //     [350, 100],
-    //     [300, 50],
-    //     [250, 0],
-    //     [200, 50],
-    //     [150, 100],
-    //     [100, 150],
-    //     [50, 200],
-    //     [0, 250],
-    //     [50, 300],
-    //     [100, 350],
-    //     [150, 400],
-    //     [200, 450]
-    // ], shift);
+    //     [650, 500],
+    //     [450, 250]
+    // ];
+    var matrix = _.map([
+        [250, 250],
+        [250, 500],
+        [300, 450],
+        [350, 400],
+        [400, 350],
+        [450, 300],
+        [500, 250],
+        [450, 200],
+        [400, 150],
+        [350, 100],
+        [300, 50],
+        [250, 0],
+        [200, 50],
+        [150, 100],
+        [100, 150],
+        [50, 200],
+        [0, 250],
+        [50, 300],
+        [100, 350],
+        [150, 400],
+        [200, 450]
+    ], shift);
     var results = boxography({
         matrix: matrix,
+        computeLimits: false,
         limits: {
             x: window.innerWidth,
             y: window.innerHeight
+        },
+        continues: function (found) {
+            return _.keys(found).length < 3;
         }
     }, function (x, y) {
         // some function computes
-        return x >= 300 && x <= 600 && y >= 200 && y <= 400 ? 'x' : (x >= 450 && x <= 999 && y >= 300 && y <= 600 ? 'y' : 'z');
+        return x >= 300 && x <= 600 && y >= 200 && y <= 400 ? 'x' : (x >= 450 && x <= 999 && y >= 300 && y <= window.innerHeight ? 'y' : 'z');
     });
     results.forEachBorder(function (cell) {
         context.fillStyle = colors[cell[2]];
@@ -55,7 +60,7 @@ function compute() {
     });
 
     function shift(row) {
-        return [row[0] + x - 10, row[1] + y - 10, row[0] + x + 10, row[1] + y + 10];
+        return [row[0] + x - (size / 2), row[1] + y - (size / 2), row[0] + x + (size / 2), row[1] + y + (size / 2)];
     }
 }
 window.addEventListener('resize', draw);
