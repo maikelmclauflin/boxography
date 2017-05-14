@@ -1,11 +1,10 @@
 var _ = require('debit');
-module.exports = function (options_) {
+module.exports = function (options_, compute) {
     var options = Object.assign({
         matrixify: matrixify
     }, options_);
     // fill out matrix, since it can be 2 or 4 long
     var matrix = _.map(_.cloneJSON(options.matrix), fillMatrix);
-    var compute = options.compute;
     var limits = options.limits || {};
     var all = [];
     var limitX = limits.x;
@@ -23,14 +22,126 @@ module.exports = function (options_) {
         return function (y) {
             var id = compute(x, y);
             var list = byWinner(id);
-            list.push([x, y]);
-            all.push([x, y, id]);
-            return id;
+            var pointer = [x, y, id];
+            list.push(pointer);
+            all.push(pointer);
+            return pointer;
         };
     });
-    var winner, target;
-    var m = matrix.length;
-    var borders = {};
+    var cache = ask.cache = ask_reverse.cache;
+    var borderPixelsByWinner = {};
+    computeAreas(matrix, ask);
+    computeIntersections(matrix, ask, addBorder);
+    computeBorders(borderList, ask, addBorder, addBorderPixel);
+    return {
+        all: all,
+        winner: byWinner,
+        points: cache,
+        border: borderCache,
+        borderList: borderList,
+        forEach: function (fn) {
+            return turnDecisionsIntoMatrix(cache, fn);
+        },
+        forEachBorder: function (fn) {
+            _.forOwn(borderPixelsByWinner, function (opts, id) {
+                _.forEach(opts.all, function (coord) {
+                    fn(coord);
+                });
+            });
+        }
+    };
+
+    function ask(x, y) {
+        return ask_reverse(y, x);
+    }
+
+    function inTheBox(x, y) {
+        return x > 0 && y > 0 > 0 && x <= limitX && y <= limitY;
+    }
+
+    function addBorder(x, y, id, bx, by) {
+        if (!inTheBox(x, y)) {
+            return;
+        }
+        var coord = [x, y, id, bx, by],
+            identifier = coord.join(',');
+        if (!borderCache[identifier]) {
+            borderCache[identifier] = coord;
+            return addBorderPixel.apply(null, coord);
+        }
+    }
+
+    function addBorderPixel(x, y, id, bx, by) {
+        var scopedBorderPixels = borderPixelsByWinner[id] = borderPixelsByWinner[id] || {
+                all: [],
+                hash: {}
+            },
+            scopedX = scopedBorderPixels.hash[x] = scopedBorderPixels.hash[x] || {},
+            coords = scopedX[y] = scopedX[y] || [],
+            coord = [x, y, id, bx, by];
+        scopedBorderPixels.all.push(coord);
+        coords.push(coord);
+        borderList.push(coord);
+        return true;
+    }
+};
+
+function computeBorders(borders, ask, add, addBorder) {
+    var target, index = 0;
+    while (index < borders.length) {
+        compute(borders[index]);
+        index++;
+    }
+
+    function compute(border) {
+        var x = border[0],
+            y = border[1],
+            id = border[2],
+            bx = border[3],
+            by = border[4],
+            bIsTop = by < y,
+            bIsLeft = bx < x,
+            bIsRight = bx > x,
+            bIsBottom = by > y;
+        if (bIsTop || bIsBottom) {
+            // if the border is on top or on bottom
+            // then we can only move right or left
+            computeNext(x + 1, y, x + 1, by, x + 1, by);
+            computeNext(x - 1, y, x - 1, by, x - 1, by);
+        } else {
+            // if the border is on left or on right
+            // then we can only move up or down
+            computeNext(x, y - 1, bx, y - 1, bx, y - 1);
+            computeNext(x, y + 1, bx, y + 1, bx, y + 1);
+        }
+
+        function computeNext(x_, y_, bx_, by_, bx__, by__) {
+            var nextBorder, nextId = ask(x_, y_)[2];
+            if (nextId === id) {
+                nextBorder = ask(bx_, by_)[2];
+                if (nextBorder === id) {
+                    // they are retreating
+                    add(bx__, by__, id, bx, by);
+                } else {
+                    // nothing has changed
+                    add(x_, y_, id, bx_, by_);
+                }
+            } else {
+                // end of the line. check back
+                add(x, y, id, x_, y_);
+            }
+        }
+    }
+
+    function hasComputed(x, y) {
+        var xCache, yCache;
+        if ((xCache = ask.cache[x])) {
+            return xCache[y];
+        }
+    }
+}
+
+function computeAreas(matrix, ask) {
     _.forEach(matrix, function (row) {
         var x1 = row[0],
             y1 = row[1],
@@ -46,7 +157,11 @@ module.exports = function (options_) {
             y += 1;
         } while (y < y2);
     });
-    var index = 0;
+}
+
+function computeIntersections(matrix, ask, addBorder) {
+    var target, index = 0,
+        m = matrix.length;
     while (index < m) {
         target = matrix[index];
         index += 1;
@@ -56,20 +171,6 @@ module.exports = function (options_) {
     function autoTarget(next) {
         connect(target, next, borderTracker);
     }
-    var tasks = [
-        //
-    ];
-    while (tasks.length) {}
-    var cache = ask_reverse.cache;
-    return {
-        all: all,
-        winner: byWinner,
-        points: cache,
-        border: borderCache,
-        forEach: function (fn) {
-            return turnDecisionsIntoMatrix(cache, fn);
-        }
-    };
 
     function borderTracker(startX, startY) {
         var previous = {
@@ -79,7 +180,7 @@ module.exports = function (options_) {
         return churn;
 
         function churn(x, y) {
-            var id, id1, id2, coords;
+            var point, id, id1, id2;
             // var borderCacheHash
             if (x !== previous.x && y !== previous.y) {
                 if (previous.y < y) {
@@ -88,19 +189,12 @@ module.exports = function (options_) {
                     churn(x, y + 1);
                 }
             }
-            id = ask(x, y);
+            point = ask(x, y);
+            id = point[2];
             if (previous.id && previous.id !== id) {
                 // border change
-                coords = [
-                    [previous.x, previous.y],
-                    [x, y]
-                ];
-                id1 = coords.join(',');
-                id2 = [coords[0], coords[1]].join(',');
-                if (!borderCache[id1] && !borderCache[id2]) {
-                    borderList.push(coords);
-                    borderCache[id1] = borderCache[id2] = coords;
-                }
+                addBorder(previous.x, previous.y, previous.id, x, y);
+                addBorder(x, y, id, previous.x, previous.y);
             }
             previous.id = id;
             previous.x = x;
@@ -108,11 +202,7 @@ module.exports = function (options_) {
             return id;
         }
     }
-
-    function ask(x, y) {
-        return ask_reverse(y, x);
-    }
-};
+}
 
 function fillMatrix(row) {
     return row.length === 4 ? row : row.concat(row);
@@ -155,7 +245,7 @@ function taskme(x1, y1, x2, y2, runner) {
         };
     }
 }
-
+// get a close enough center
 function resolveCenter(row) {
     var x1 = row[0],
         y1 = row[1],
@@ -166,8 +256,8 @@ function resolveCenter(row) {
     return [parseInt(avgX), parseInt(avgY)];
 }
 
-function connect(origin_, target_, ask) {
-    var calculatedSlope, origin = resolveCenter(origin_),
+function connect(origin_, target_, borderTracker) {
+    var calculatedSlope, task, origin = resolveCenter(origin_),
         x1 = origin[0],
         y1 = origin[1],
         target = resolveCenter(target_),
@@ -185,8 +275,7 @@ function connect(origin_, target_, ask) {
         if (x2 < x1) {
             reverse();
         }
-    } else if ((calculatedSlope = slope(x1, y1, x2, y2)) >= -1 && //
-        calculatedSlope <= 1) {
+    } else if ((calculatedSlope = slope(x1, y1, x2, y2)) >= -1 && calculatedSlope <= 1) {
         if (calculatedSlope > 0) {
             if (x2 < x1) {
                 reverse();
@@ -207,7 +296,7 @@ function connect(origin_, target_, ask) {
             }
         }
     }
-    var task = taskme(x_1, y_1, x_2, y_2, ask(x_1, y_1));
+    task = taskme(x_1, y_1, x_2, y_2, borderTracker(x_1, y_1));
     while (task()) {}
 
     function reverse() {
@@ -225,8 +314,8 @@ function matrixify(item) {
 function turnDecisionsIntoMatrix(decisions, matrixify) {
     return _.reduce(decisions, function (memo, object, x_) {
         var x = +x_;
-        return _.reduce(object.cache, function (memo, id, y) {
-            memo.push(matrixify([x, +y, id]));
+        return _.reduce(object.cache, function (memo, info, y) {
+            memo.push(matrixify([x, +y, info[2]]));
             return memo;
         }, memo);
     }, []);

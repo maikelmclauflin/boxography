@@ -12,9 +12,9 @@ function compute() {
     var x = 200;
     var y = 50;
     var matrix = [
-        [400, 400],
-        [800, 400],
-        [600, 150]
+        [250, 500],
+        [650, 500],
+        [450, 250]
     ];
     // var matrix = _.map([
     //     [250, 250],
@@ -41,26 +41,25 @@ function compute() {
     // ], shift);
     var results = boxography({
         matrix: matrix,
-        compute: function (x, y) {
-            // some function computes
-            return x >= 300 && x <= 600 && y >= 200 && y <= 400 ? 'x' : (x >= 450 && x <= 999 && y >= 300 && y <= 600 ? 'y' : 'z');
-        },
         limits: {
-            x: 1000,
-            y: 1000
+            x: window.innerWidth,
+            y: window.innerHeight
         }
+    }, function (x, y) {
+        // some function computes
+        return x >= 300 && x <= 600 && y >= 200 && y <= 400 ? 'x' : (x >= 450 && x <= 999 && y >= 300 && y <= 600 ? 'y' : 'z');
     });
-    results.forEach(function (cell) {
+    results.forEachBorder(function (cell) {
         context.fillStyle = colors[cell[2]];
-        context.fillRect(cell[0], cell[1], 1, 1);
+        context.fillRect(cell[0] - 1, cell[1] - 1, 1, 1);
     });
+
+    function shift(row) {
+        return [row[0] + x - 10, row[1] + y - 10, row[0] + x + 10, row[1] + y + 10];
+    }
 }
 window.addEventListener('resize', draw);
 draw();
-
-function shift(row) {
-    return [row[0] + x - 10, row[1] + y - 10, row[0] + x + 10, row[1] + y + 10];
-}
 
 function draw() {
     canvas.setAttribute('height', window.innerHeight);
