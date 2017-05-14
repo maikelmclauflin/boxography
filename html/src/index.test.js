@@ -1,7 +1,6 @@
 var _ = require('debit');
 var canvas = document.getElementById("canvas");
 var context = canvas.getContext("2d");
-window._ = _;
 
 function compute() {
     var colors = {

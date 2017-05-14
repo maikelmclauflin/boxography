@@ -12,13 +12,13 @@ module.exports = function (options_, compute) {
     var all = [];
     var limitX = limits.x;
     var limitY = limits.y;
-    var iterationLimit = limits.iterations || 500000;
     var iterations = 0;
     if (!limitX || !limitY) {
         throw new Error({
             message: 'box computations must have a limit'
         });
     }
+    var iterationLimit = limits.iterations || ((limitX * limitY) / 10);
     var byWinner = _.cacheable(_.returns.array);
     var borderList = [];
     var borderCache = {};
@@ -179,27 +179,31 @@ function computeBorders(result, borders, ask, addBorder, addSingleBorder, addBor
             bIsTop = by < y,
             bIsLeft = bx < x,
             bIsRight = bx > x,
-            bIsBottom = by > y;
+            bIsBottom = by > y,
+            xplus = x + 1,
+            xminus = x - 1,
+            yplus = y + 1,
+            yminus = y - 1;
         if (bIsTop || bIsBottom) {
             // if the border is on top or on bottom
             // then we can only move right or left
-            computeNext(x + 1, y, x + 1, by, x + 1, by);
-            computeNext(x - 1, y, x - 1, by, x - 1, by);
+            computeNext(xplus, y, xplus, by, xplus, by);
+            computeNext(xminus, y, xminus, by, xminus, by);
         } else {
             // if the border is on left or on right
             // then we can only move up or down
-            computeNext(x, y - 1, bx, y - 1, bx, y - 1);
-            computeNext(x, y + 1, bx, y + 1, bx, y + 1);
+            computeNext(x, yplus, bx, yplus, bx, yplus);
+            computeNext(x, yminus, bx, yminus, bx, yminus);
         }
 
-        function computeNext(x_, y_, bx_, by_, bx__, by__) {
+        function computeNext(x_, y_, bx_, by_, x__, y__) {
             var nextBorder, nextId = ask(x_, y_)[2];
             if (nextId === id) {
                 nextBorder = ask(bx_, by_)[2];
                 if (nextBorder === id) {
                     // they are retreating
-                    addBorder(bx__, by__, id, bx, by, bid);
-                    addBorderPixel([x_, y_, id]);
+                    addBorder(bx_, by_, id, bx, by, bid);
+                    // addBorderPixel([x_, y_, id]);
                 } else {
                     // nothing has changed
                     addBorder(x_, y_, id, bx_, by_, ask(bx_, by_)[2]);
@@ -207,6 +211,9 @@ function computeBorders(result, borders, ask, addBorder, addSingleBorder, addBor
             } else {
                 // end of the line. check back
                 addBorder(x, y, id, x_, y_, nextId);
+                if ((nextId !== (nextBorder = ask(bx_, by_)[2]))) {
+                    addBorder(x_, y_, nextId, bx_, by_, nextBorder);
+                }
             }
         }
     }
