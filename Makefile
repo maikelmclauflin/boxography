@@ -1,25 +1,39 @@
-module_input := html/src/index.js
-module_output := html/assets/js/index.js
-module_output_min := html/assets/js/index.min.js
+force_module_input := html/src/force/index.js
+force_module_output := html/assets/js/force/index.js
+force_module_output_min := html/assets/js/force/index.min.js
 
-spec_input := html/src/index.test.js
-spec_output := html/assets/js/index.test.js
-spec_output_min := html/assets/js/index.test.min.js
+force_spec_input := html/src/force/index.test.js
+force_spec_output := html/assets/js/force/index.test.js
+force_spec_output_min := html/assets/js/force/index.test.min.js
+
+points_module_input := html/src/points/index.js
+points_module_output := html/assets/js/points/index.js
+points_module_output_min := html/assets/js/points/index.min.js
+
+points_spec_input := html/src/points/index.test.js
+points_spec_output := html/assets/js/points/index.test.js
+points_spec_output_min := html/assets/js/points/index.test.min.js
 
 fresh: clean build_all
 
 ensure_build_js:
 	mkdir -p html/assets/js
+	mkdir -p html/assets/js/points
+	mkdir -p html/assets/js/force
 
 build_all: ensure_build_js build_module build_spec
 
 build_module:
-	browserify $(module_input) > $(module_output)
-	uglifyjs $(module_output) > $(module_output_min)
+	browserify $(force_module_input) > $(force_module_output)
+	# uglifyjs $(force_module_output) > $(force_module_output_min)
+	browserify $(points_module_input) > $(points_module_output)
+	# uglifyjs $(points_module_output) > $(points_module_output_min)
 
 build_spec:
-	browserify $(spec_input) > $(spec_output)
-	uglifyjs $(spec_output) > $(spec_output_min)
+	browserify $(force_spec_input) > $(force_spec_output)
+	# uglifyjs $(force_spec_output) > $(force_spec_output_min)
+	browserify $(points_spec_input) > $(points_spec_output)
+	# uglifyjs $(points_spec_output) > $(points_spec_output_min)
 
 clean:
 	rm -rf html/assets/js
