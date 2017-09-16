@@ -1,13 +1,29 @@
-var _ = require('debit');
-module.exports = function (options_, compute) {
-    var options = Object.assign({
+var returnsTrue = require('@timelaps/returns/true');
+var map = require('@timelaps/n/map');
+var cloneJSON = require('@timelaps/json/clone');
+var cacheable = require('@timelaps/fn/cacheable');
+var returnsArray = require('@timelaps/returns/array');
+var assign = require('@timelaps/object/assign');
+var categoricallyCacheable = require('@timelaps/fn/cacheable/categorically');
+var forOwn = require('@timelaps/n/for/own');
+var forEach = require('@timelaps/n/for/each');
+var find = require('@timelaps/array/find');
+var toInteger = require('@timelaps/to/integer');
+var reduce = require('@timelaps/array/reduce');
+module.exports = function (compute, options_) {
+    var options = assign({
         matrixify: matrixify,
-        continues: _.returns.true,
-        computeLimits: true
+        continues: returnsTrue,
+        computeLimits: true,
+        matrix: [],
+        limits: {
+            x: window.innerWidth,
+            y: window.innerHeight
+        }
     }, options_);
     var computeLimits = options.computeLimits;
     // fill out matrix, since it can be 2 or 4 long
-    var matrix = _.map(_.cloneJSON(options.matrix), fillMatrix);
+    var matrix = map(cloneJSON(options.matrix || []), fillMatrix);
     var limits = options.limits || {};
     var all = [];
     var limitX = limits.x;
@@ -19,10 +35,10 @@ module.exports = function (options_, compute) {
         });
     }
     var iterationLimit = limits.iterations || ((limitX * limitY) / 10);
-    var byWinner = _.cacheable(_.returns.array);
+    var byWinner = cacheable(returnsArray);
     var borderList = [];
     var borderCache = {};
-    var ask_reverse = _.categoricallyCacheable(function (x) {
+    var ask_reverse = categoricallyCacheable(function (x) {
         return function (y) {
             var id = compute(x, y);
             var list = byWinner(id);
@@ -51,8 +67,8 @@ module.exports = function (options_, compute) {
             return turnDecisionsIntoMatrix(cache, fn);
         },
         forEachBorder: function (fn) {
-            _.forOwn(borderPixelsByWinner, function (opts, id) {
-                _.forEach(opts.all, function (coord) {
+            forOwn(borderPixelsByWinner, function (opts, id) {
+                forEach(opts.all, function (coord) {
                     fn(coord);
                 });
             });
@@ -63,7 +79,7 @@ module.exports = function (options_, compute) {
         addBorderPixel([x, y, id[2]]);
         return id;
     }, addBorder) : bt;
-    var finished = _.find([
+    var finished = find([
         [
             [1, 1],
             [1, limitY]
@@ -145,9 +161,6 @@ module.exports = function (options_, compute) {
             },
             scopedX = scopedBorderPixels.hash[x] = scopedBorderPixels.hash[x] || {},
             coords = scopedX[y] = scopedX[y] || [];
-        // if ((id && ask(x, y)[2] !== id) || (bid && ask(bx, by)[2] !== bid)) {
-        //     debugger;
-        // }
         scopedBorderPixels.all.push(coord);
         if (canBeBorder(x, y, bx, by)) {
             borderList.push(coord);
@@ -227,16 +240,16 @@ function computeBorders(result, borders, ask, addBorder, addSingleBorder, addBor
 }
 
 function computeAreas(matrix, ask, addBorder, continues) {
-    return _.find(matrix, function (row) {
+    return find(matrix, function (row) {
         var memo, id, id2, x1 = row[0],
             y1 = row[1],
             x2 = row[2],
             y2 = row[3],
             x, y = y1,
-            x_ = _.toInteger((x2 + x1) / 2),
-            y_ = _.toInteger((y2 + y1) / 2),
+            x_ = toInteger((x2 + x1) / 2),
+            y_ = toInteger((y2 + y1) / 2),
             primeId = ask(x_, y_)[2];
-        if ((memo = _.find([
+        if ((memo = find([
                 [x_, y_],
                 [x_, y_ + 1],
                 [x_, y_ - 1],
@@ -285,7 +298,7 @@ function computeIntersections(matrix, bt, continues) {
     while (index < m) {
         target = matrix[index];
         index += 1;
-        if (_.find(matrix.slice(index), autoTarget)) {
+        if (find(matrix.slice(index), autoTarget)) {
             return true;
         }
     }
@@ -340,7 +353,6 @@ function taskme(x1, y1, x2, y2, runner) {
         x = x1,
         y = y1,
         slopeValue = slope(x1, y1, x2, y2);
-    // increments = _.noop;
     if (slopeValue === Infinity) {
         return incrementsBy(0, 1, function () {
             return y <= y2;
@@ -361,7 +373,7 @@ function taskme(x1, y1, x2, y2, runner) {
 
     function incrementsBy(xnext, ynext, continues) {
         return function () {
-            runner(_.toInteger(x), _.toInteger(y));
+            runner(toInteger(x), toInteger(y));
             x += xnext;
             y += ynext;
             return continues();
@@ -377,7 +389,7 @@ function resolveCenter(row) {
         y2 = row[3],
         avgX = (x1 + x2) / 2,
         avgY = (y1 + y2) / 2;
-    return [_.toInteger(avgX), _.toInteger(avgY)];
+    return [toInteger(avgX), toInteger(avgY)];
 }
 
 function connect(origin_, target_, borderTracker, continues, supress) {
@@ -439,9 +451,9 @@ function matrixify(item) {
 }
 
 function turnDecisionsIntoMatrix(decisions, matrixify) {
-    return _.reduce(decisions, function (memo, object, x_) {
+    return reduce(decisions, function (memo, object, x_) {
         var x = +x_;
-        return _.reduce(object.cache, function (memo, info, y) {
+        return reduce(object.cache, function (memo, info, y) {
             memo.push(matrixify([x, +y, info[2]]));
             return memo;
         }, memo);

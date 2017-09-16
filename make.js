@@ -1,1 +1,1 @@
-require('child_process').exec('make');
+require('child_process').exec('npm run make');

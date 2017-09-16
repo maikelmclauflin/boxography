@@ -4,16 +4,52 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "debit": "^1.0.14"
+    "@specless/layout": "^1.0.22",
+    "@timelaps/array": "^1.0.16",
+    "@timelaps/fn": "^1.0.16",
+    "@timelaps/json": "^1.0.4",
+    "@timelaps/n": "^1.0.29",
+    "@timelaps/number": "^1.0.3",
+    "@timelaps/object": "^1.0.20",
+    "@timelaps/to": "^1.0.9",
+    "debit": "^1.0.29"
   },
   "devDependencies": {
-    "batterie": "^1.0.32"
+    "batterie": "^1.0.69",
+    "browserify": "^14.4.0",
+    "mkdirp": "^0.5.1",
+    "npm-watch": "^0.2.0"
   },
   "scripts": {
-    "test": "nodemon index.test.js",
+    "watch": "npm-watch",
+    "dev": "npm-watch",
     "share": "npm version patch && git push && npm publish",
-    "dev": "nodemon --ignore html/assets/js --delay 0.2 make.js"
+    "make": "npm run ensure_build_js",
+    "clean": "rm -rf html/assets/js",
+    "build_all": "npm run ensure_build_js && npm run build_force && npm run build_force_spec && npm run build_points && npm run build_points_spec",
+    "ensure_build_js": "mkdirp $npm_package_js && mkdirp $npm_package_pointsDir && mkdirp $npm_package_forceDir",
+    "build_force": "browserify $npm_package_forceSrc/index.js -o $npm_package_forceDir/index.js",
+    "build_force_spec": "browserify $npm_package_forceSrc/index.test.js -o $npm_package_forceDir/index.test.js",
+    "build_points": "browserify $npm_package_pointsSrc/index.js -o $npm_package_pointsDir/index.js",
+    "build_points_spec": "browserify $npm_package_pointsSrc/index.test.js -o $npm_package_pointsDir/index.test.js"
   },
+  "watch": {
+    "build_all": {
+      "patterns": [
+        "./html",
+        "./force",
+        "./points"
+      ],
+      "ignore": "html/assets/js",
+      "legacyWatch": true,
+      "quiet": true
+    }
+  },
+  "js": "./html/assets/js/",
+  "pointsSrc": "./html/src/points/",
+  "forceSrc": "./html/src/force",
+  "pointsDir": "./html/assets/js/points",
+  "forceDir": "./html/assets/js/force",
   "keywords": [],
   "author": "Michael McLaughlin <michael@gospecless.com> (https://gospecless.com)",
   "license": "MIT"
