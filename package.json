@@ -15,6 +15,7 @@
     "debit": "^1.0.29"
   },
   "devDependencies": {
+    "@timelaps/batterie": "^1.0.73",
     "batterie": "^1.0.69",
     "browserify": "^14.4.0",
     "mkdirp": "^0.5.1",

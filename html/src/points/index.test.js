@@ -1,42 +1,88 @@
 var $canvas = document.querySelectorAll('#canvas')[0],
     context = $canvas.getContext('2d'),
-    allLayouts = require('../layoutdata'),
+    allLayouts = require('../layoutbackup'),
     boxography = require('../../../points'),
-    layout = require('@specless/layout');
+    reduce = require('@timelaps/array/reduce'),
+    layout = require('@specless/layout'),
+    LARGE_INTEGER = require('@specless/layout/constants').LARGE_INTEGER,
+    b = require('@timelaps/batterie');
 var forOwn = require('@timelaps/n/for/own');
 var forEach = require('@timelaps/n/for/each');
 window.addEventListener('resize', setCanvasSize);
 window.addEventListener('orientationchange', setCanvasSize);
-setCanvasSize();
-draw();
+// setCanvasSize();
 
 function draw() {
-    var result = boxography(allLayouts, window.innerWidth, window.innerHeight, function (point) {
-        return layout.closest(allLayouts, {
-            width: point[0],
-            height: point[1]
-        }).name;
-    });
+    // b.it('handles regular boxes', function (t) {
+    //     var min = 30;
+    //     t.expect(create({
+    //         name: 'one',
+    //         width: [300],
+    //         height: [300]
+    //     }).bounds).toEqual([
+    //         [{
+    //             x: min,
+    //             y: min
+    //         }, {
+    //             x: LARGE_INTEGER,
+    //             y: min
+    //         }, {
+    //             x: LARGE_INTEGER,
+    //             y: LARGE_INTEGER
+    //         }, {
+    //             x: min,
+    //             y: LARGE_INTEGER
+    //         }]
+    //     ]);
+    // });
+
+    // function create(layout) {
+    //     return boxography([layout], {
+    //         width: window.innerWidth,
+    //         height: window.innerHeight
+    //     }, function (point) {
+    //         return layout.closest([layout], {
+    //             width: point[0],
+    //             height: point[1]
+    //         }).name;
+    //     });
+    // }
+    // forEach(bounds, function (polygon) {
+    //     reduce(polygon, function (memo, point) {
+    //         line(memo.x, memo.y, point.x, point.y);
+    //         return point;
+    //     }, polygon[polygon.length - 1]);
+    // });
+    // forEach(result.aspects, function (point) {
+    //     line(0, 0, point.x, point.y);
+    // });
+    // forEach(result.groups, function (group) {
+    //     crosshairs(group.x, group.y);
+    // });
+    // forEach(result.intersections, function (group) {
+    //     crosshairs(group.x, group.y);
+    // });
+    console.log(result);
     // _.forEach(result, function (point) {
     //     crosshairs(point[0], point[1]);
     // });
-    forOwn(result, function (polygon, key) {
-        var first, previous;
-        // if (key !== 'a') {
-        //     return;
-        // }
-        forEach(polygon, function (point) {
-            if (previous) {
-                line(previous[0], previous[1], point[0], point[1]);
-            } else {
-                first = point;
-            }
-            previous = point;
-        });
-        if (previous) {
-            line(previous[0], previous[1], first[0], first[1]);
-        }
-    });
+    // forOwn(result, function (polygon, key) {
+    //     var first, previous;
+    //     // if (key !== 'a') {
+    //     //     return;
+    //     // }
+    //     forEach(polygon, function (point) {
+    //         if (previous) {
+    //             line(previous[0], previous[1], point[0], point[1]);
+    //         } else {
+    //             first = point;
+    //         }
+    //         previous = point;
+    //     });
+    //     if (previous) {
+    //         line(previous[0], previous[1], first[0], first[1]);
+    //     }
+    // });
     // result.scaled.forEach(rectangle);
     // result.points.forEach(function (x, y, id) {
     //     crosshairs(x, y);
@@ -105,7 +151,7 @@ function draw() {
     // });
 }
 
-function square(x, y, w_, h_, color_) {
+function square(x, y, w_, h_, color) {
     var w = w_ || 13,
         h = h_ || 13,
         halfwidth = Math.floor(w / 2),
@@ -113,20 +159,18 @@ function square(x, y, w_, h_, color_) {
         x_ = x - halfwidth,
         y_ = y - halfheight,
         x__ = x + halfwidth,
-        y__ = y + halfheight,
-        color = color_ || 'black';
-    context.fillStyle = color;
-    rectangle(x_, y_, x__, y__);
+        y__ = y + halfheight;
+    rectangle(x_, y_, x__, y__, color);
 }
 
-function rectangle(x_, y_, x__, y__) {
-    line(x_, y_, x_, y__);
-    line(x_, y__, x__, y__);
-    line(x__, y__, x__, y_);
-    line(x__, y_, x_, y_);
+function rectangle(x_, y_, x__, y__, color) {
+    line(x_, y_, x_, y__, color);
+    line(x_, y__, x__, y__, color);
+    line(x__, y__, x__, y_, color);
+    line(x__, y_, x_, y_, color);
 }
 
-function crosshairs(x, y, w_, h_, color_) {
+function crosshairs(x, y, w_, h_, color) {
     var w = w_ || 13,
         h = h_ || 13,
         halfwidth = Math.floor(w / 2),
@@ -134,14 +178,14 @@ function crosshairs(x, y, w_, h_, color_) {
         x_ = x - halfwidth,
         y_ = y - halfheight,
         x__ = x_,
-        y__ = y_,
-        color = color_ || 'black';
+        y__ = y_;
     context.fillStyle = color;
-    line(x, y_, x, y_ + h);
-    line(x_, y, x_ + w, y);
+    line(x, y_, x, y_ + h, color);
+    line(x_, y, x_ + w, y, color);
 }
 
-function line(x1, y1, x2, y2) {
+function line(x1, y1, x2, y2, color) {
+    context.fillStyle = color || 'black';
     context.beginPath();
     context.moveTo(Math.round(x1), Math.round(y1));
     context.lineTo(Math.round(x2), Math.round(y2));
@@ -151,4 +195,5 @@ function line(x1, y1, x2, y2) {
 function setCanvasSize() {
     $canvas.height = window.innerHeight;
     $canvas.width = window.innerWidth;
+    draw();
 }

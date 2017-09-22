@@ -1,5 +1,5 @@
 var layout = require('@specless/layout'),
-    allLayouts = require('../layoutdata'),
+    allLayouts = require('../layoutbackup'),
     boxography = require('../../../force'),
     $canvas = document.querySelector('#canvas'),
     context = $canvas.getContext('2d');
@@ -15,6 +15,8 @@ function draw() {
             width: x,
             height: y
         }).name;
+    }, {
+        layouts: allLayouts
     });
     // render the canvas
     result.forEachBorder(function (cell) {

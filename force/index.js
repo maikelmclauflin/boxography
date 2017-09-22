@@ -10,12 +10,13 @@ var forEach = require('@timelaps/n/for/each');
 var find = require('@timelaps/array/find');
 var toInteger = require('@timelaps/to/integer');
 var reduce = require('@timelaps/array/reduce');
+var layout = require('@specless/layout');
 module.exports = function (compute, options_) {
     var options = assign({
         matrixify: matrixify,
         continues: returnsTrue,
         computeLimits: true,
-        matrix: [],
+        layouts: [],
         limits: {
             x: window.innerWidth,
             y: window.innerHeight
@@ -23,7 +24,7 @@ module.exports = function (compute, options_) {
     }, options_);
     var computeLimits = options.computeLimits;
     // fill out matrix, since it can be 2 or 4 long
-    var matrix = map(cloneJSON(options.matrix || []), fillMatrix);
+    var matrix = map(cloneJSON(options.matrix || createMatrix(options.layouts)), fillMatrix);
     var limits = options.limits || {};
     var all = [];
     var limitX = limits.x;
@@ -169,6 +170,15 @@ module.exports = function (compute, options_) {
         return true;
     }
 };
+
+function createMatrix(layouts) {
+    return map(layouts, function (a) {
+        return [ //
+            layout.min.width(a), layout.min.height(a), //
+            layout.max.width(a), layout.max.height(a)
+        ];
+    });
+}
 
 function canBeBorder(x, y, bx, by) {
     return (x === bx || (x - 1 === bx || x + 1 === bx)) && (y === by || (y - 1 === by || y + 1 === by));

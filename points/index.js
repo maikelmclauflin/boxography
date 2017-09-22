@@ -9,9 +9,13 @@ var combinations = require('@timelaps/array/combinations');
 var forEach = require('@timelaps/n/for/each');
 var create = require('@specless/layout/create');
 var round = require('@timelaps/number/round');
+var layout = require('@specless/layout');
+var unique = require('@timelaps/array/unique');
 var counter = 0;
 var midpointWidth = midpoint('width');
 var midpointHeight = midpoint('height');
+// var averageWidth = averager('width');
+// var averageHeight = averager('height');
 module.exports = boxography;
 var indexMap = {
     height: 1,
@@ -103,47 +107,171 @@ function crossOvers(layouts) {
     // }
 }
 
-function basicPoints(layouts) {
+function boundaries(layouts) {
     return reduce(layouts, function (points, layout) {
-        var id = layout.id;
+        var id = layout.id || layout.name;
         var width = layout.width;
         var scale = layout.scale;
         var height = layout.height;
         var minWidth = layout.minWidth;
         var maxWidth = layout.maxWidth;
-        var minScale = layout.minScale;
-        var maxScale = layout.maxScale;
         var minHeight = layout.minHeight;
         var maxHeight = layout.maxHeight;
-        var exclusion = [
-            minWidth,
-            minHeight,
-            minScale,
-            maxWidth,
-            maxHeight,
-            maxScale
-        ];
-        var xList = [
-            width[0] * scale[0],
-            width[0],
-            width[1],
-            width[1] * scale[1]
-        ];
-        var yList = [
-            height[0] * scale[0],
-            height[0],
-            height[1],
-            height[1] * scale[1]
-        ];
-        forEach(xList, function (x) {
-            forEach(yList, function (y) {
-                points.push([x, y, id]);
+        var actualMinWidth = Math.max(width[0] * scale[0], minWidth);
+        var actualMinHeight = Math.max(height[0] * scale[0], minHeight);
+        var actualMaxWidth = Math.min(width[0] * scale[1], maxWidth);
+        var actualMaxHeight = Math.min(height[0] * scale[1], maxHeight);
+        var minAspect = layout.minAspect || 0;
+        var maxAspect = layout.maxAspect || Infinity;
+        var slope;
+        var minsAspect = actualMinWidth / actualMinHeight;
+        var maxsAspect = actualMaxWidth / actualMaxHeight;
+        var calculatedMinAspect = actualMinWidth / actualMaxHeight;
+        var calculatedMaxAspect = actualMaxWidth / actualMinHeight;
+        var actualMinAspect = Math.max(minAspect, calculatedMinAspect);
+        var actualMaxAspect = Math.min(maxAspect, calculatedMaxAspect);
+        var minAspectIsSmaller = minsAspect > actualMinAspect;
+        var maxAspectIsLarger = minsAspect < actualMaxAspect;
+        var path = [];
+        if (!minAspectIsSmaller && !maxAspectIsLarger) {
+            // path is just gc'd because it will never get rendered
+            return points;
+        } else if (minAspectIsSmaller && maxAspectIsLarger) {
+            slope = 0;
+            path.push({
+                x: actualMinWidth,
+                y: actualMinHeight
             });
-        });
+        } else if (minAspectIsSmaller) {
+            // max aspect covers corner
+            // triangle
+            path.push({
+                x: actualMinWidth,
+                y: maxAspect * actualMinWidth
+            });
+        } else if (maxAspectIsLarger) {
+            // min aspect covers corner
+            // we will end on a diagonal back to this point
+            // triangle
+            path.push({
+                x: actualMinHeight * minAspect,
+                y: actualMinHeight
+            });
+        }
+        points.push(path);
+        if (maxAspect < calculatedMaxAspect) {
+            // creates a diagonal
+            slope = maxAspect;
+            path.push({
+                x: actualMinHeight * maxAspect,
+                y: actualMinHeight
+            });
+            if (maxAspect < maxsAspect) {
+                slope = 0;
+                // going back to the left
+                path.push({
+                    x: actualMaxWidth * maxAspect,
+                    y: actualMaxHeight
+                });
+            } else {
+                slope = Infinity;
+                path.push({
+                    x: actualMaxWidth,
+                    y: actualMaxWidth / maxAspect
+                });
+            }
+        } else {
+            // creates a corner
+            slope = Infinity;
+            path.push({
+                x: actualMaxWidth,
+                y: actualMinHeight
+            });
+        }
+        if (slope) {
+            // add the max corner
+            if (actualMinAspect > maxsAspect) {
+                path.push({
+                    x: actualMaxWidth,
+                    y: actualMaxWidth / actualMinAspect
+                });
+                if (minsAspect > actualMinAspect) {
+                    path.push({
+                        x: actualMinWidth,
+                        y: actualMinWidth / actualMinAspect
+                    });
+                }
+                return points;
+            } else {
+                path.push({
+                    x: actualMaxWidth,
+                    y: actualMaxHeight
+                });
+            }
+        }
+        if (actualMinAspect > calculatedMinAspect) {
+            // cut off corner
+            path.push({
+                x: actualMaxHeight / actualMinAspect,
+                y: actualMaxHeight
+            });
+            if (!maxAspectIsLarger) {
+                path.push({
+                    x: actualMinWidth,
+                    y: actualMinWidth / actualMinAspect
+                });
+            }
+        } else {
+            // go to corner
+            path.push({
+                x: actualMinWidth,
+                y: actualMaxHeight
+            });
+        }
         return points;
     }, []);
 }
 
+function averager(dim) {
+    return function (a) {
+        return computeAverage(layout.min[dim](a), layout.max[dim](a));
+    };
+}
+
+function computeAverage(a, b) {
+    return (a + b) / 2;
+}
+// function aspectBoundaries(layouts) {
+//     return combinations(layouts, function (memo, a) {
+//         var bounds = computeLayoutBounds(a);
+//         return function (memo, b) {
+//             var coords = intersection(a, b);
+//             var bounds = computeLayoutBounds(b);
+//             var x = coords.x;
+//             var y = coords.y;
+//             var maxWidth = Math.max(a.maxWidth, b.maxWidth);
+//             var maxHeight = Math.max(a.maxHeight, b.maxHeight);
+//             var aspect = x / y;
+//             var maxAspect = maxWidth / maxHeight;
+//             if (maxAspect === aspect) {
+//                 // do nothing
+//             } else if (maxAspect > aspect) {
+//                 maxWidth = aspect * maxHeight;
+//             } else if (maxAspect < aspect) {
+//                 maxHeight = maxWidth / aspect;
+//             } else {
+//                 // is nan
+//             }
+//             memo.push({
+//                 x: maxWidth,
+//                 y: maxHeight,
+//                 value: coords.x / coords.y,
+//                 base: coords
+//             });
+//             return memo;
+//         };
+//     }, []);
+// }
 function computeFromConstantY(x1, y1, slope, y2) {
     return y2 > y1 ? ((y2 - y1) / slope) + x1 : (slope < 1 ? y2 / slope : y2 * slope);
 }
@@ -210,62 +338,192 @@ function computeDistance(x1, y1, slope, x2, y2) {
     }
 }
 
-function boxography(layouts_, x, y, test) {
-    var layouts = map(layouts_, create);
-    var basics = basicPoints(layouts);
-    var aggregator = {
-        // points: points,
-        // fromConstantX: computeFromConstantX,
-        // fromConstantY: computeFromConstantY
+function overlap(a, b) {
+    return {
+        minWidth: Math.max(a.minWidth, b.minWidth),
+        minHeight: Math.max(a.minHeight, b.minHeight),
+        maxWidth: Math.min(a.maxWidth, b.maxWidth),
+        maxHeight: Math.min(a.maxHeight, b.maxHeight)
     };
-    // aggregator.scaled = limits(layouts, aggregator);
-    var borders = crossOvers(layouts);
-    var angledIntersections = computeAngledIntersections(basics, borders);
-    var angledIntersectionsAgain = computeIntersections(angledIntersections);
-    var points = uniqueWith(reduce([
-        [1, 1],
-        [1, y],
-        [x, y],
-        [x, 1]
-    ].concat(basics, borders, angledIntersections), function (memo, point) {
-        var x = point[0];
-        var y = point[1];
-        // var xup = Math.ceil(x);
-        var xdown = Math.floor(x);
-        // var yup = Math.ceil(y);
-        var ydown = Math.floor(y);
-        return memo.concat([ //
-            [xdown, ydown]
-            // ,
-            // [xup, ydown],
-            // [xdown, yup],
-            // [xup, yup]
-        ]);
-    }, []), isEqual);
-    return solve(layouts, points, test);
 }
-
-function computeIntersections(angledIntersections) {
-    return combinations(angledIntersections, function (memo, a) {
-        var x1 = a[0];
-        var y1 = a[1];
-        var slope1 = y1 / x1;
-        return function (intersections, b) {
-            var x2 = b[0];
-            var y2 = b[1];
-            var slope2 = y2 / x2;
-            if (slope1 === slope2) {
-                //
-            } else if (slope2 > slope1) {
-                intersections.push([y2, x1]);
-            } else {
-                intersections.push([y1, x2]);
+// function computeGroups(bounds) {
+//     if (!bounds.length) {
+//         return [];
+//     }
+//     return combinations(bounds, function (memo, a) {
+//         return function (memo, b) {
+//             var x = [a.minWidth, b.minWidth, a.maxWidth, b.maxWidth];
+//             var y = [a.minHeight, b.minHeight, a.maxHeight, b.maxHeight];
+//             x = unique(x);
+//             y = unique(y);
+//             forEach(x, function (x) {
+//                 forEach(y, function (y) {
+//                     memo.push({
+//                         x: x,
+//                         y: y
+//                     });
+//                 });
+//             });
+//             return memo;
+//         };
+//     }, []);
+//     function compute(overflowing) {
+//         return function (list, a, b) {
+//             var overflow = overflowing(a, b);
+//             return overflow ? list.concat(overflow) : list;
+//         };
+//     }
+//     function computeGroup(groups, layout) {
+//         var next = [];
+//         var bounds = computeLayoutBounds(layout);
+//         return next;
+//     }
+// }
+// function computeLayoutBounds(layout) {
+//     var scale = layout.scale;
+//     var width = layout.width;
+//     var height = layout.height;
+//     var minScale = scale[0];
+//     var maxScale = scale[1];
+//     var minWidth = Math.max(layout.minWidth, width[0] * minScale);
+//     var minHeight = Math.max(layout.minHeight, height[0] * minScale);
+//     var maxWidth = Math.min(layout.maxWidth, width[1] * maxScale);
+//     var maxHeight = Math.min(layout.maxHeight, height[1] * maxScale);
+//     return {
+//         minWidth: minWidth,
+//         minHeight: minHeight,
+//         maxWidth: maxWidth,
+//         maxHeight: maxHeight
+//     };
+// }
+function computeIntersections(aspects, groups) {
+    return reduce(aspects, function (memo, aspect) {
+        return memo.concat(reduce(groups, function (memo, coord) {
+            if (aspect === coord.x / coord.y) {
+                return memo;
             }
-            return intersections;
-        };
+            return memo.concat([ //
+                computeXIntersection(aspect, coord), //
+                computeYIntersection(aspect, coord) //
+            ]);
+        }, []));
     }, []);
 }
 
+function computeXIntersection(aspect, coord) {
+    return {
+        x: coord.x,
+        y: coord.y * aspect.value
+    };
+}
+
+function computeYIntersection(aspect, coord) {
+    return {
+        x: aspect.value / coord.x,
+        y: coord.y
+    };
+}
+
+function computeHorizontalLine(lines, moreNegative, y, minX, maxX) {}
+
+function computeVerticalLine(lines, moreNegative, x, minY, maxY) {
+    // if ()
+}
+
+function computeSegmentBounds(bounds, lines) {
+    return reduce(bounds, function (lines) {}, lines);
+}
+// function computeOutline(bounds, lines) {
+//     return reduce(bounds, function (memo, rect) {
+//         var top = {
+//             minHeight: rect.minHeight,
+//             minWidth: rect.minWidth,
+//             maxWidth: rect.maxWidth
+//         };
+//         var bottom = {
+//             minHeight: rect.maxHeight,
+//             minWidth: rect.minWidth,
+//             maxWidth: rect.maxWidth
+//         };
+//         var left = {
+//             minWidth: rect.minWidth,
+//             minHeight: rect.minHeight,
+//             maxHeight: rect.maxHeight
+//         };
+//         var right = {
+//             maxWidth: rect.maxWidth,
+//             minHeight: rect.minHeight,
+//             maxHeight: rect.maxHeight
+//         };
+//         return memo.concat(top, bottom, left, right);
+//     }, lines);
+// }
+function boxography(layouts_, dims, test) {
+    var lines = [];
+    var layouts = map(layouts_, create);
+    var bounds = boundaries(layouts);
+    // var aspects = aspectBoundaries(layouts);
+    // var groups = computeGroups(bounds);
+    // var intersections = computeIntersections(aspects, groups);
+    // lines = computeSegmentBounds(bounds, lines);
+    return {
+        // lines: lines,
+        // intersections: intersections,
+        // groups: groups,
+        // aspects: aspects,
+        bounds: bounds
+    };
+    // var aggregator = {
+    //     // points: points,
+    //     // fromConstantX: computeFromConstantX,
+    //     // fromConstantY: computeFromConstantY
+    // };
+    // aggregator.scaled = limits(layouts, aggregator);
+    // var borders = crossOvers(layouts);
+    // var angledIntersections = computeAngledIntersections(basics, borders);
+    // var angledIntersectionsAgain = computeIntersections(angledIntersections);
+    // var points = uniqueWith(reduce([
+    //     [1, 1],
+    //     [1, y],
+    //     [x, y],
+    //     [x, 1]
+    // ].concat(basics, borders, angledIntersections), function (memo, point) {
+    //     var x = point[0];
+    //     var y = point[1];
+    //     // var xup = Math.ceil(x);
+    //     var xdown = Math.floor(x);
+    //     // var yup = Math.ceil(y);
+    //     var ydown = Math.floor(y);
+    //     return memo.concat([ //
+    //         [xdown, ydown]
+    //         // ,
+    //         // [xup, ydown],
+    //         // [xdown, yup],
+    //         // [xup, yup]
+    //     ]);
+    // }, []), isEqual);
+    // return solve(layouts, points, test);
+}
+// function computeIntersections(angledIntersections) {
+//     return combinations(angledIntersections, function (memo, a) {
+//         var x1 = a[0];
+//         var y1 = a[1];
+//         var slope1 = y1 / x1;
+//         return function (intersections, b) {
+//             var x2 = b[0];
+//             var y2 = b[1];
+//             var slope2 = y2 / x2;
+//             if (slope1 === slope2) {
+//                 //
+//             } else if (slope2 > slope1) {
+//                 intersections.push([y2, x1]);
+//             } else {
+//                 intersections.push([y1, x2]);
+//             }
+//             return intersections;
+//         };
+//     }, []);
+// }
 function computeAngledIntersections(points, borders) {
     var intersections = [];
     var xs = allPoints(0);
@@ -387,7 +645,6 @@ function solve(layouts, points, test) {
         var d = test(square[3]);
         return a === b && a === c && a === d;
     });
-
     // function test(point) {
     //     return layouts.closest({
     //         width: point[0],
@@ -727,7 +984,10 @@ function intersection(a, b, memo) {
     if (slope1 === slope2) {
         var x = Math.sqrt(p1[0] / slope2) * Math.sqrt(p2[0]);
         var y = Math.sqrt(p1[1] / slope2) * Math.sqrt(p2[1]);
-        return [round(x, -8), round(y, -8)];
+        return {
+            x: round(x, -8),
+            y: round(y, -8)
+        };
     } else {
         // line(p1[0], p1[1], p2[0], p2[1]);
         // line(0, 0, s1 * 100, s2 * 100);
@@ -751,7 +1011,10 @@ function intersection(a, b, memo) {
         var det = (A1 * B2) - (A2 * B1);
         var X = ((B2 * C1) - (B1 * C2)) / det;
         var Y = ((A1 * C2) - (A2 * C1)) / det;
-        return [round(X, -8), round(Y, -8)];
+        return {
+            x: round(X, -8),
+            y: round(Y, -8)
+        };
         // line(0, 0, X * 100, Y * 100);
     }
 }

@@ -15,7 +15,7 @@ module.exports = [{
     name: "short-thin",
     width: [580, 580],
     height: [90, 90],
-    scale: [0.1, 1.5]
+    scale: ['none', 1.2]
 }, {
     // <skit-layout
     //     id="short-thinner"
@@ -25,7 +25,7 @@ module.exports = [{
     name: "short-thinner",
     width: [480, 480],
     height: [90, 90],
-    scale: [0.1, 1.5]
+    scale: ['none', 1.2]
 }, {
     // <skit-layout
     //     id="short-thinnest"
@@ -35,7 +35,7 @@ module.exports = [{
     name: "short-thinnest",
     width: [320, 320],
     height: [90, 90],
-    scale: [0.1, 1.5]
+    scale: ['none', 1.2]
 }, {
     // <skit-layout
     //     id="medium"
@@ -45,7 +45,7 @@ module.exports = [{
     name: "medium",
     width: [300, 300],
     height: [250, 250],
-    scale: [0.6, 1000]
+    scale: [1, 'any']
 }, {
     // <skit-layout
     //     id="tall"
@@ -55,9 +55,7 @@ module.exports = [{
     //     min-width="150"></skit-layout>
     name: "tall",
     width: [300, 300],
-    height: [500, 500],
-    minHeight: 150,
-    minWidth: 150
+    height: [500, 500]
 }, {
     // <skit-layout
     //     id="tall-thin"
@@ -67,7 +65,5 @@ module.exports = [{
     //     min-height="150"></skit-layout>
     name: "tall-thin",
     width: [200, 200],
-    height: [500, 500],
-    scale: [0.16, 1000],
-    minHeight: 150
+    height: [500, 500]
 }];
