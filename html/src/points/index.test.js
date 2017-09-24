@@ -4,15 +4,24 @@ var $canvas = document.querySelectorAll('#canvas')[0],
     boxography = require('../../../points'),
     reduce = require('@timelaps/array/reduce'),
     layout = require('@specless/layout'),
+    layouts = require('../layoutbackup'),
     LARGE_INTEGER = require('@specless/layout/constants').LARGE_INTEGER,
     b = require('@timelaps/batterie');
 var forOwn = require('@timelaps/n/for/own');
 var forEach = require('@timelaps/n/for/each');
 window.addEventListener('resize', setCanvasSize);
 window.addEventListener('orientationchange', setCanvasSize);
-// setCanvasSize();
+setCanvasSize();
+draw();
 
 function draw() {
+    var result = boxography(layouts);
+    forEach(result.bounds, function (polygon) {
+        reduce(polygon, function (memo, point) {
+            line(memo.x, memo.y, point.x, point.y);
+            return point;
+        }, polygon[polygon.length - 1]);
+    });
     // b.it('handles regular boxes', function (t) {
     //     var min = 30;
     //     t.expect(create({
@@ -35,7 +44,6 @@ function draw() {
     //         }]
     //     ]);
     // });
-
     // function create(layout) {
     //     return boxography([layout], {
     //         width: window.innerWidth,
@@ -47,12 +55,6 @@ function draw() {
     //         }).name;
     //     });
     // }
-    // forEach(bounds, function (polygon) {
-    //     reduce(polygon, function (memo, point) {
-    //         line(memo.x, memo.y, point.x, point.y);
-    //         return point;
-    //     }, polygon[polygon.length - 1]);
-    // });
     // forEach(result.aspects, function (point) {
     //     line(0, 0, point.x, point.y);
     // });
@@ -195,5 +197,4 @@ function line(x1, y1, x2, y2, color) {
 function setCanvasSize() {
     $canvas.height = window.innerHeight;
     $canvas.width = window.innerWidth;
-    draw();
 }

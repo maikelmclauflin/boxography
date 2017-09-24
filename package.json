@@ -4,14 +4,14 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "@specless/layout": "^1.0.22",
-    "@timelaps/array": "^1.0.16",
-    "@timelaps/fn": "^1.0.16",
+    "@specless/layout": "^1.0.25",
+    "@timelaps/array": "^1.0.17",
+    "@timelaps/fn": "^1.0.17",
     "@timelaps/json": "^1.0.4",
-    "@timelaps/n": "^1.0.29",
+    "@timelaps/n": "^1.0.30",
     "@timelaps/number": "^1.0.3",
-    "@timelaps/object": "^1.0.20",
-    "@timelaps/to": "^1.0.9",
+    "@timelaps/object": "^1.0.21",
+    "@timelaps/to": "^1.0.11",
     "debit": "^1.0.29"
   },
   "devDependencies": {
@@ -24,10 +24,11 @@
   "scripts": {
     "watch": "npm-watch",
     "dev": "npm-watch",
+    "test": "node test.js",
     "share": "npm version patch && git push && npm publish",
     "make": "npm run ensure_build_js",
     "clean": "rm -rf html/assets/js",
-    "build_all": "npm run ensure_build_js && npm run build_force && npm run build_force_spec && npm run build_points && npm run build_points_spec",
+    "build_all": "npm run ensure_build_js && npm run build_force_spec && npm run build_points_spec",
     "ensure_build_js": "mkdirp $npm_package_js && mkdirp $npm_package_pointsDir && mkdirp $npm_package_forceDir",
     "build_force": "browserify $npm_package_forceSrc/index.js -o $npm_package_forceDir/index.js",
     "build_force_spec": "browserify $npm_package_forceSrc/index.test.js -o $npm_package_forceDir/index.test.js",

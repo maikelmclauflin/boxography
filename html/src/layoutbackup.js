@@ -1,17 +1,9 @@
 module.exports = [{
-    name: 'one',
-    width: [100],
-    height: [300],
-    maxHeight: 600,
-    maxWidth: 600,
-    maxAspect: 1.5,
-    minAspect: 0.5
-// }, {
-//     name: 'two',
-//     width: [400],
-//     height: [200],
-//     maxHeight: 600,
-//     maxWidth: 800
+    width: 200,
+    height: 400
+}, {
+    width: 400,
+    height: 200
 }];
 // module.exports = [{
 //     // <skit-layout

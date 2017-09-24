@@ -24,7 +24,7 @@ module.exports = function (compute, options_) {
     }, options_);
     var computeLimits = options.computeLimits;
     // fill out matrix, since it can be 2 or 4 long
-    var matrix = map(cloneJSON(options.matrix || createMatrix(options.layouts)), fillMatrix);
+    var matrix = map(cloneJSON(options.matrix || createMatrix(options.layouts, options.limits)), fillMatrix);
     var limits = options.limits || {};
     var all = [];
     var limitX = limits.x;
@@ -171,13 +171,17 @@ module.exports = function (compute, options_) {
     }
 };
 
-function createMatrix(layouts) {
+function createMatrix(layouts, dims) {
     return map(layouts, function (a) {
         return [ //
             layout.min.width(a), layout.min.height(a), //
             layout.max.width(a), layout.max.height(a)
         ];
-    });
+    }).concat([
+        [
+            dims.x / 2, dims.y / 2, dims.x / 2, dims.y / 2
+        ]
+    ]);
 }
 
 function canBeBorder(x, y, bx, by) {
