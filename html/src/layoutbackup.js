@@ -1,10 +1,18 @@
-module.exports = [{
+var one = {
+    id: 'one',
+    height: 300,
+    width: 100,
+    maxWidth: 600,
+    maxHeight: 600
+};
+var two = {
+    id: 'two',
+    height: 100,
     width: 200,
-    height: 400
-}, {
-    width: 400,
-    height: 200
-}];
+    maxWidth: 600,
+    maxHeight: 600
+};
+module.exports = [one, two];
 // module.exports = [{
 //     // <skit-layout
 //     //     id="short"

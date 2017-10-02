@@ -19,6 +19,7 @@ function draw() {
         layouts: allLayouts
     });
     // render the canvas
+    console.log(result);
     result.forEachBorder(function (cell) {
         var x = cell[0];
         var y = cell[1];

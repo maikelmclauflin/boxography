@@ -1,5 +1,6 @@
 module.exports = boundaries;
 var math = Math;
+var fromCoords = require('./from-coords');
 var LARGE_INTEGER = require('@specless/layout/constants').LARGE_INTEGER;
 
 function boundaries(layout, dims_) {
@@ -20,19 +21,7 @@ function boundaries(layout, dims_) {
     if (actualMinWidth > actualMaxWidth || actualMinHeight > actualMaxHeight) {
         return [];
     } else {
-        return [{
-            x: actualMinWidth,
-            y: actualMinHeight
-        }, {
-            x: actualMaxWidth,
-            y: actualMinHeight
-        }, {
-            x: actualMaxWidth,
-            y: actualMaxHeight
-        }, {
-            x: actualMinWidth,
-            y: actualMaxHeight
-        }];
+        return fromCoords(actualMinWidth, actualMinHeight, actualMaxWidth, actualMaxHeight);
     }
 }
 

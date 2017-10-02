@@ -28,7 +28,7 @@
     "share": "npm version patch && git push && npm publish",
     "make": "npm run ensure_build_js",
     "clean": "rm -rf html/assets/js",
-    "build_all": "npm run ensure_build_js && npm run build_force_spec && npm run build_points_spec",
+    "build": "npm run ensure_build_js && npm run build_force_spec && npm run build_points_spec",
     "ensure_build_js": "mkdirp $npm_package_js && mkdirp $npm_package_pointsDir && mkdirp $npm_package_forceDir",
     "build_force": "browserify $npm_package_forceSrc/index.js -o $npm_package_forceDir/index.js",
     "build_force_spec": "browserify $npm_package_forceSrc/index.test.js -o $npm_package_forceDir/index.test.js",
@@ -36,7 +36,7 @@
     "build_points_spec": "browserify $npm_package_pointsSrc/index.test.js -o $npm_package_pointsDir/index.test.js"
   },
   "watch": {
-    "build_all": {
+    "build": {
       "patterns": [
         "./html",
         "./force",

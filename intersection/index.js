@@ -10,7 +10,7 @@ function midpoint(key) {
     };
 }
 
-function intersection(a, b, memo) {
+function intersection(a, b) {
     var p1 = [midpointWidth(a), midpointHeight(a)];
     var p2 = [midpointWidth(b), midpointHeight(b)];
     var slope1 = p1[1] / p1[0];

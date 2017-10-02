@@ -35,7 +35,7 @@ module.exports = function (compute, options_) {
             message: 'box computations must have a limit'
         });
     }
-    var iterationLimit = limits.iterations || ((limitX * limitY) / 10);
+    var iterationLimit = limits.iterations || ((limitX * limitY));
     var byWinner = cacheable(returnsArray);
     var borderList = [];
     var borderCache = {};
@@ -48,6 +48,7 @@ module.exports = function (compute, options_) {
             all.push(pointer);
             iterations += 1;
             if (iterations >= iterationLimit) {
+                console.log(all);
                 throw new Error({
                     message: 'iteration limit reached'
                 });

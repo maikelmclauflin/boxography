@@ -6,22 +6,116 @@ var $canvas = document.querySelectorAll('#canvas')[0],
     layout = require('@specless/layout'),
     layouts = require('../layoutbackup'),
     LARGE_INTEGER = require('@specless/layout/constants').LARGE_INTEGER,
-    b = require('@timelaps/batterie');
+    b = require('@timelaps/batterie'),
+    closest = require('../../../closest'),
+    under1 = require('@timelaps/number/under1'),
+    reduceOwn = require('@timelaps/array/reduce/own');
+var result = boxography(layouts);
 var forOwn = require('@timelaps/n/for/own');
 var forEach = require('@timelaps/n/for/each');
 window.addEventListener('resize', setCanvasSize);
 window.addEventListener('orientationchange', setCanvasSize);
+document.addEventListener('mousemove', function (e) {
+    var x = e.x;
+    var y = e.y;
+    var layouts = closest(x, y, result);
+    draw(layouts, result);
+});
 setCanvasSize();
-draw();
+console.log(result);
 
-function draw() {
-    var result = boxography(layouts);
-    forEach(result.bounds, function (polygon) {
-        reduce(polygon, function (memo, point) {
-            line(memo.x, memo.y, point.x, point.y);
-            return point;
-        }, polygon[polygon.length - 1]);
+function rectangle(bounds, color) {
+    context.fillStyle = color;
+    context.fillRect(bounds.minX, bounds.minY, bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+}
+
+function reset() {
+    rectangle({
+        minX: 0,
+        minY: 0,
+        maxX: window.innerWidth,
+        maxY: window.innerHeight
+    }, 'white');
+}
+
+function remove(loss, color) {
+    context.fillStyle = color;
+    context.beginPath();
+    context.moveTo(loss.minX, loss.minY);
+    var lossMinAspect = loss.minX / loss.minY;
+    var lossMaxAspect = loss.maxX / loss.maxY;
+    var lossAspect = loss.aspect;
+    if (lossAspect) {
+        if (loss.top) {
+            context.lineTo(loss.maxX, loss.minY);
+            context.lineTo(loss.maxX, loss.maxY);
+            context.lineTo(loss.maxY * lossAspect, loss.maxY);
+            context.lineTo(loss.minX, loss.minX / lossAspect);
+        } else {
+            if (lossAspect > lossMinAspect) {
+                // from the top
+                context.lineTo(loss.minY * lossAspect , loss.minY);
+            } else {
+                // from the left
+                context.lineTo(loss.minX, loss.minX * lossAspect);
+            }
+            if (lossAspect < lossMaxAspect) {
+                // through bottom
+                context.lineTo(loss.maxY * lossAspect, loss.maxY);
+            } else {
+                // through right
+                context.lineTo(loss.maxX, loss.maxX * lossAspect);
+                context.lineTo(loss.maxX, loss.maxY);
+            }
+            context.lineTo(loss.minX, loss.maxY);
+        }
+    }
+    context.closePath();
+    context.fill();
+}
+
+function draw(data) {
+    var datum = data[0];
+    if (!datum) {
+        datum = {
+            bounds: {
+                minX: 0,
+                minY: 0,
+                maxX: window.innerWidth,
+                maxY: window.innerHeight
+            },
+            losses: reduceOwn(result, function (memo, item_) {
+                var item = item_.bounds;
+                memo.push({
+                    minX: item.minX,
+                    minY: item.minY,
+                    maxX: item.maxX,
+                    maxY: item.maxY,
+                    aspect: item.minX / item.maxY,
+                    top: true
+                });
+                return memo;
+            }, [])
+        };
+    } else if (data.length > 1) {
+        // find closest another way
+        return;
+    }
+    reset();
+    var bounds = datum.bounds;
+    rectangle(datum.bounds, 'black');
+    // var minAspect = bounds.minX / bounds.minY;
+    // var maxAspect = bounds.maxX / bounds.maxY;
+    forEach(datum.losses, function (loss) {
+        remove(loss, 'white');
     });
+    // var findOwn =
+    // forEach(result.bounds, function (polygon) {
+    //     reduce(polygon, function (memo, point) {
+    //         line(memo.x, memo.y, point.x, point.y);
+    //         return point;
+    //     }, polygon[polygon.length - 1]);
+    // });
     // b.it('handles regular boxes', function (t) {
     //     var min = 30;
     //     t.expect(create({
@@ -64,7 +158,7 @@ function draw() {
     // forEach(result.intersections, function (group) {
     //     crosshairs(group.x, group.y);
     // });
-    console.log(result);
+    // console.log(result);
     // _.forEach(result, function (point) {
     //     crosshairs(point[0], point[1]);
     // });
@@ -152,48 +246,43 @@ function draw() {
     //     }
     // });
 }
-
-function square(x, y, w_, h_, color) {
-    var w = w_ || 13,
-        h = h_ || 13,
-        halfwidth = Math.floor(w / 2),
-        halfheight = Math.floor(h / 2),
-        x_ = x - halfwidth,
-        y_ = y - halfheight,
-        x__ = x + halfwidth,
-        y__ = y + halfheight;
-    rectangle(x_, y_, x__, y__, color);
-}
-
-function rectangle(x_, y_, x__, y__, color) {
-    line(x_, y_, x_, y__, color);
-    line(x_, y__, x__, y__, color);
-    line(x__, y__, x__, y_, color);
-    line(x__, y_, x_, y_, color);
-}
-
-function crosshairs(x, y, w_, h_, color) {
-    var w = w_ || 13,
-        h = h_ || 13,
-        halfwidth = Math.floor(w / 2),
-        halfheight = Math.floor(h / 2),
-        x_ = x - halfwidth,
-        y_ = y - halfheight,
-        x__ = x_,
-        y__ = y_;
-    context.fillStyle = color;
-    line(x, y_, x, y_ + h, color);
-    line(x_, y, x_ + w, y, color);
-}
-
-function line(x1, y1, x2, y2, color) {
-    context.fillStyle = color || 'black';
-    context.beginPath();
-    context.moveTo(Math.round(x1), Math.round(y1));
-    context.lineTo(Math.round(x2), Math.round(y2));
-    context.stroke();
-}
-
+// function square(x, y, w_, h_, color) {
+//     var w = w_ || 13,
+//         h = h_ || 13,
+//         halfwidth = Math.floor(w / 2),
+//         halfheight = Math.floor(h / 2),
+//         x_ = x - halfwidth,
+//         y_ = y - halfheight,
+//         x__ = x + halfwidth,
+//         y__ = y + halfheight;
+//     rectangle(x_, y_, x__, y__, color);
+// }
+// function rectangle(x_, y_, x__, y__, color) {
+//     line(x_, y_, x_, y__, color);
+//     line(x_, y__, x__, y__, color);
+//     line(x__, y__, x__, y_, color);
+//     line(x__, y_, x_, y_, color);
+// }
+// function crosshairs(x, y, w_, h_, color) {
+//     var w = w_ || 13,
+//         h = h_ || 13,
+//         halfwidth = Math.floor(w / 2),
+//         halfheight = Math.floor(h / 2),
+//         x_ = x - halfwidth,
+//         y_ = y - halfheight,
+//         x__ = x_,
+//         y__ = y_;
+//     context.fillStyle = color;
+//     line(x, y_, x, y_ + h, color);
+//     line(x_, y, x_ + w, y, color);
+// }
+// function line(x1, y1, x2, y2, color) {
+//     context.fillStyle = color || 'black';
+//     context.beginPath();
+//     context.moveTo(Math.round(x1), Math.round(y1));
+//     context.lineTo(Math.round(x2), Math.round(y2));
+//     context.stroke();
+// }
 function setCanvasSize() {
     $canvas.height = window.innerHeight;
     $canvas.width = window.innerWidth;
